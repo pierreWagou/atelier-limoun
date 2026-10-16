@@ -1,0 +1,18 @@
+procs:
+  cms:
+    shell: npm run develop
+    cwd: cms
+  site:
+    shell: npm run dev
+    cwd: site
+    env:
+      STRAPI_URL: http://localhost:1337
+  tests:
+    shell: npx vitest
+    cwd: site
+  types-site:
+    shell: npx astro check --watch
+    cwd: site
+  types-cms:
+    shell: npx tsc --watch --noEmit
+    cwd: cms

@@ -1,0 +1,41 @@
+---
+import Base from '../layouts/Base.astro';
+import { getHome, getProjects, mediaUrl } from '../lib/strapi';
+
+const home = await getHome();
+const projects = await getProjects();
+const hero = mediaUrl(home.heroImage?.data);
+const intro = home.intro;
+---
+
+<Base title={home.title ?? 'Atelier Limoun'} description={home.subtitle ?? undefined}>
+  <section class="hero">
+    <h1>{home.title}</h1>
+    {home.subtitle && <p class="subtitle">{home.subtitle}</p>}
+    {hero && <img src={hero} alt={home.heroImage?.data?.alternativeText ?? ''} />}
+  </section>
+
+  {intro && <div class="content" set:html={intro} />}
+
+  {
+    projects.length > 0 && (
+      <section>
+        <h2>Projets récents</h2>
+        <ul class="project-grid">
+          {projects.slice(0, 6).map((project) => {
+            const cover = mediaUrl(project.coverImage?.data);
+            return (
+              <li class="project-card">
+                <a href={`/projets/${project.slug}`}>
+                  {cover && <img src={cover} alt={project.title ?? ''} loading="lazy" />}
+                  <h2>{project.title}</h2>
+                  {project.description && <p>{project.description}</p>}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    )
+  }
+</Base>

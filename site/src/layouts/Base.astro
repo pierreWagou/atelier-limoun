@@ -1,0 +1,53 @@
+---
+import '../styles/global.css';
+import { getGlobal } from '../lib/strapi';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const global = await getGlobal().catch(() => null);
+const siteName = global?.siteName ?? 'Atelier Limoun';
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} — {siteName}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a href="/" class="site-title">{siteName}</a>
+      <nav>
+        <a href="/projets">Projets</a>
+        {
+          global?.socialLinks?.map((link) => (
+            <a href={link.url} rel="me noopener" target="_blank">
+              {link.network}
+            </a>
+          ))
+        }
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <p>{global?.footerText ?? siteName}</p>
+      {
+        global?.contactEmail && (
+          <p>
+            <a href={`mailto:${global.contactEmail}`}>{global.contactEmail}</a>
+            {global.contactPhone && <> · {global.contactPhone}</>}
+          </p>
+        )
+      }
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+# Extends gitleaks default rules with project-specific allowlists.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder values in example env files and local dev secrets"
+paths = [
+  '''\.env\.example$''',
+  '''cms/\.env$''',
+  '''site/\.env$''',
+]
+regexes = [
+  '''change-me''',
+  '''local(key|adminjwt|salt|jwt)''',
+  '''localsalt\d''',
+]

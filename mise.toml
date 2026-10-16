@@ -1,0 +1,24 @@
+# Unified dev environment — contributors only need mise:
+#   mise install      → installs Node (see .node-version) with npm
+#   mise run setup    → installs all dependencies
+#   mise run dev      → starts CMS + site in mprocs
+# The Node version lives in .node-version (read by fnm, mise and Nixpacks).
+# Command primitives live in the root package.json; tasks below delegate.
+
+[settings]
+idiomatic_version_file_enable_tools = ["node", "mprocs"]
+
+[tools]
+mprocs = "latest"
+
+[tasks.setup]
+description = "Install all dependencies (/, site/, cms/) + Playwright Chromium"
+run = "npm run setup"
+
+[tasks.dev]
+description = "Run the dev services in mprocs (CMS, site, tests, typechecks)"
+run = "mprocs"
+
+[tasks.test]
+description = "Run unit tests"
+run = "npm run test"

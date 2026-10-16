@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+import { getPage, getPages, mediaUrl } from '../lib/strapi';
+
+export async function getStaticPaths() {
+  const pages = await getPages();
+  return pages.map((page) => ({ params: { slug: page.slug } }));
+}
+
+const { slug } = Astro.params;
+const page = await getPage(slug!);
+const hero = mediaUrl(page?.heroImage?.data);
+---
+
+<Base title={page?.title ?? 'Page'} description={undefined}>
+  <article>
+    <h1>{page?.title}</h1>
+    {hero && <img src={hero} alt={page?.title ?? ''} />}
+    {page?.content && <div class="content" set:html={page.content} />}
+  </article>
+</Base>

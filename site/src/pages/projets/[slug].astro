@@ -1,0 +1,35 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getProject, getProjects, mediaUrl } from '../../lib/strapi';
+
+export async function getStaticPaths() {
+  const projects = await getProjects();
+  return projects.map((project) => ({ params: { slug: project.slug } }));
+}
+
+const { slug } = Astro.params;
+const project = await getProject(slug!);
+const cover = mediaUrl(project?.coverImage?.data);
+const gallery = project?.gallery?.data ?? [];
+---
+
+<Base title={project?.title ?? 'Projet'} description={project?.description ?? undefined}>
+  <article>
+    <h1>{project?.title}</h1>
+    {project?.description && <p class="subtitle">{project.description}</p>}
+    {cover && <img src={cover} alt={project?.title ?? ''} />}
+    {
+      gallery.length > 0 && (
+        <div class="gallery">
+          {gallery.map((image) => (
+            <img
+              src={mediaUrl(image)}
+              alt={image.alternativeText ?? project?.title ?? ''}
+              loading="lazy"
+            />
+          ))}
+        </div>
+      )
+    }
+  </article>
+</Base>

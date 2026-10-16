@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getProjects, mediaUrl } from '../../lib/strapi';
+
+const projects = await getProjects();
+---
+
+<Base title="Projets">
+  <h1>Projets</h1>
+  <ul class="project-grid">
+    {
+      projects.map((project) => {
+        const cover = mediaUrl(project.coverImage?.data);
+        return (
+          <li class="project-card">
+            <a href={`/projets/${project.slug}`}>
+              {cover && <img src={cover} alt={project.title ?? ''} loading="lazy" />}
+              <h2>{project.title}</h2>
+              {project.description && <p>{project.description}</p>}
+            </a>
+          </li>
+        );
+      })
+    }
+  </ul>
+</Base>

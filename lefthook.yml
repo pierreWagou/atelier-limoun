@@ -1,0 +1,19 @@
+pre-commit:
+  jobs:
+    - name: biome
+      run: npx biome check --write --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,astro,json,jsonc,css,yml,yaml,md}"
+    - name: gitleaks
+      run: gitleaks protect --staged --redact
+      # gitleaks is a standalone binary (brew install gitleaks), not an npm dep
+
+pre-push:
+  jobs:
+    - name: vitest
+      run: npm run test
+      # unit tests are fast (<1s); E2E stays in CI (needs built site + Strapi)
+    - name: typecheck-site
+      run: npm run check:site
+    - name: typecheck-cms
+      run: npm run check:cms

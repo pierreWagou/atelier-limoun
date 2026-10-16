@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "pages",
+  "info": {
+    "displayName": "Page",
+    "singularName": "page",
+    "pluralName": "pages"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "heroImage": {
+      "type": "media",
+      "allowedTypes": ["images"]
+    },
+    "content": {
+      "type": "richtext",
+      "required": true
+    }
+  }
+}

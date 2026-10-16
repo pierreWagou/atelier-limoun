@@ -1,0 +1,26 @@
+{
+  "kind": "singleType",
+  "collectionName": "homes",
+  "info": {
+    "displayName": "Home",
+    "singularName": "home",
+    "pluralName": "homes"
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "subtitle": {
+      "type": "text"
+    },
+    "heroImage": {
+      "type": "media",
+      "allowedTypes": ["images"],
+      "required": false
+    },
+    "intro": {
+      "type": "richtext"
+    }
+  }
+}

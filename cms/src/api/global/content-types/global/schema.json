@@ -1,0 +1,36 @@
+{
+  "kind": "singleType",
+  "collectionName": "globals",
+  "info": {
+    "displayName": "Global settings",
+    "singularName": "global",
+    "pluralName": "globals"
+  },
+  "attributes": {
+    "siteName": {
+      "type": "string",
+      "required": true,
+      "default": "Atelier Limoun"
+    },
+    "tagline": {
+      "type": "string"
+    },
+    "contactEmail": {
+      "type": "email"
+    },
+    "contactPhone": {
+      "type": "string"
+    },
+    "address": {
+      "type": "text"
+    },
+    "socialLinks": {
+      "type": "component",
+      "repeatable": true,
+      "component": "shared.social-link"
+    },
+    "footerText": {
+      "type": "text"
+    }
+  }
+}

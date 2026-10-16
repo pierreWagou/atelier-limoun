@@ -1,6 +1,6 @@
 <div align="center">
 
-![header](https://capsule-render.vercel.com/api?type=waving&height=220&color=0:cba6f7,25:b4befe,50:89dceb,75:f5c2e7,100:f38ba8&text=atelier-limoun&fontSize=60&fontColor=11111b&desc=craft%2C%20served%20static&descSize=18&descAlignY=62&descAlign=50&fontAlignY=38&animation=fadeIn&fontAlign=50)
+![header](https://capsule-render.vercel.app/api?type=waving&height=220&color=0:cba6f7,25:b4befe,50:89dceb,75:f5c2e7,100:f38ba8&text=atelier-limoun&fontSize=60&fontColor=11111b&desc=craft%2C%20served%20static&descSize=18&descAlignY=62&descAlign=50&fontAlignY=38&animation=fadeIn&fontAlign=50)
 
 [![CI](https://github.com/pierreWagou/atelier-limoun/actions/workflows/ci.yml/badge.svg)](https://github.com/pierreWagou/atelier-limoun/actions/workflows/ci.yml)
 ![Astro](https://img.shields.io/badge/Astro-FF5D01?logo=astro&logoColor=white)

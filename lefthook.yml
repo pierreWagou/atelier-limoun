@@ -3,7 +3,7 @@ pre-commit:
     - name: biome
       run: npx biome check --write --files-ignore-unknown=true {staged_files}
       stage_fixed: true
-      glob: "*.{js,jsx,ts,tsx,mjs,cjs,astro,json,jsonc,css,yml,yaml,md}"
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,astro,json,jsonc,css,yml,yaml}"
     - name: gitleaks
       run: gitleaks protect --staged --redact
       # gitleaks is a standalone binary (brew install gitleaks), not an npm dep

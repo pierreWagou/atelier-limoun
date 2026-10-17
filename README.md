@@ -58,7 +58,9 @@ atelier-limoun/
 │   └── src/lib/strapi.ts  # CMS client — the API contract
 ├── cms/                # Strapi 5 — Global, Home, Page, Project content types
 │   └── src/index.ts    # bootstrap: demo seed + public read permissions
-├── docs/deploy.md      # VPS + Dokploy ops runbook
+├── docs/               # VitePress docs site (GitHub Pages)
+│   ├── edit.md         # French editing guide — the page to hand the atelier owner
+│   └── deploy.md       # VPS + Dokploy ops runbook
 ├── AGENTS.md           # rules for AI coding agents (cross-harness)
 ├── package.json        # the command registry — every cross-app command
 ├── lefthook.yml        # git hooks (pre-commit, pre-push)
@@ -82,7 +84,7 @@ atelier-limoun/
 # Install Node.js + all dependencies (site, cms, Playwright browser)
 mise install && mise run setup
 
-# Start the full dev environment (5 panes: cms, site, tests, typechecks)
+# Start the full dev environment (6 panes: cms, site, tests, typechecks, docs)
 mise run dev
 ```
 
@@ -117,6 +119,10 @@ E2E specs assert **plumbing** (pages render, navigation works, no console errors
 
 The site reads `/api/global`, `/api/home`, `/api/pages`, `/api/projects` through `site/src/lib/strapi.ts` at build time. Changing a content type means updating, in one change: the schema, the bootstrap seed, the client, and the affected specs (see [AGENTS.md](AGENTS.md)).
 
+### Documentation
+
+The [docs site](https://pierreWagou.github.io/atelier-limoun/) (VitePress, GitHub Pages) hosts the ops runbook and the **French editing guide** — [that page](https://pierreWagou.github.io/atelier-limoun/edit) is what you hand to the atelier owner. Build it locally with `npm run docs:dev`.
+
 ## Quick Reference
 
 | Action | Command |
@@ -128,6 +134,7 @@ The site reads `/api/global`, `/api/home`, `/api/pages`, `/api/projects` through
 | Unit tests | `npm run test` |
 | E2E | `npm run test:e2e` |
 | Secret scan | `npm run secret-scan` |
+| Docs | `npm run docs:dev` |
 
 ## License
 

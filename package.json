@@ -11,10 +11,15 @@
     "check": "npm run check:site && npm run check:cms",
     "test": "npm run test:unit --prefix site",
     "test:e2e": "npm run test:e2e --prefix site",
-    "setup": "npm ci && npm ci --prefix site && npm ci --prefix cms && npm exec --prefix site -- playwright install chromium"
+    "setup": "npm ci && npm ci --prefix site && npm ci --prefix cms && npm exec --prefix site -- playwright install chromium",
+    "docs:dev": "vitepress dev docs",
+    "predocs:dev": "mkdir -p docs/public && cp site/public/favicon.svg docs/public/favicon.svg",
+    "docs:build": "VITEPRESS_BASE=/atelier-limoun/ vitepress build docs",
+    "predocs:build": "mkdir -p docs/public && cp site/public/favicon.svg docs/public/favicon.svg"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "lefthook": "2.2.2"
+    "lefthook": "2.2.2",
+    "vitepress": "1.6.4"
   }
 }

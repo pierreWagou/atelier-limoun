@@ -11,3 +11,6 @@ cms/.tmp/
 site/test-results/
 site/playwright-report/
 site/blob-report/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/public/

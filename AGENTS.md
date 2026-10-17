@@ -28,6 +28,7 @@ Astro 7 static site (`site/`) + Strapi 5 headless CMS (`cms/`; SQLite locally, P
 
 - Each app's `npm run build` / `npm start` (cms) and build/serve commands (site) are the **deployer contract** — exactly what Dokploy runs in production. Changing them requires updating the deployment runbook (`docs/deploy.md`) in the same change.
 - The ops runbook (VPS, DNS, Dokploy, rebuild webhook, backups, handover) lives in `docs/deploy.md`.
+- The docs site builds via `npm run docs:build` (VitePress, root devDep) and deploys through `.github/workflows/docs.yml` to GitHub Pages. `docs/index.md` includes the README — keep that include working when restructuring either file.
 
 ### Secrets
 

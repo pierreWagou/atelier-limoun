@@ -16,3 +16,5 @@ procs:
   types-cms:
     shell: npx tsc --watch --noEmit
     cwd: cms
+  docs:
+    shell: npm run docs:dev

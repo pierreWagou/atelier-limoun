@@ -8,6 +8,9 @@
       "!**/.tmp",
       "!**/.astro",
       "!**/cms/public/uploads",
+      "!**/cms/.strapi",
+      "!**/cms/.strapi-updater.json",
+      "!**/docs/.vitepress/cache",
       "!**/cms/types/generated",
       "!**/package-lock.json"
     ]

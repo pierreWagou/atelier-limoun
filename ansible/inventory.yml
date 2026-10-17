@@ -1,0 +1,14 @@
+---
+# Single-host inventory for the OVH VPS.
+# The address lives in committed vars (group_vars/all/main.yml: vps_host) —
+# no per-contributor setup. Override only in exceptional cases:
+#   ATELIER_LIMOUN_VPS_HOST=<other-ip> mise run ops:check
+all:
+  hosts:
+    atelier-limoun:
+      ansible_host: "{{ vps_host }}"
+      # Default login user. First converge only, while just the OVH image
+      # user exists, use the :first tasks instead:
+      #   mise run ops:check:first / mise run ops:converge:first
+      ansible_user: wagou
+      ansible_python_interpreter: /usr/bin/python3

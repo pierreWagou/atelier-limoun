@@ -1,0 +1,42 @@
+---
+# UFW baseline: deny incoming, SSH + extras only.
+# Web ports stay CLOSED: all HTTP(S) arrives via the Cloudflare Tunnel
+# (outbound-only). Direct-access fallback (no tunnel): converge with
+# firewall_extra_open_ports: [80, 443] (e.g. -e firewall_extra_open_ports=[80,443]).
+# SSH is allowed BEFORE the firewall is enabled to avoid lockout.
+- name: Deny all incoming by default
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Allow all outgoing by default
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Allow extra ports (empty by default — tunnel mode)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ firewall_extra_open_ports }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Remove web ports when not listed (tunnel mode)
+  community.general.ufw:
+    rule: allow
+    port: "80,443"
+    proto: tcp
+    delete: true
+  when: "'80' not in firewall_extra_open_ports | map('string') | list"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled

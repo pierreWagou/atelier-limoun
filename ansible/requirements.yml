@@ -1,0 +1,12 @@
+---
+# Collection dependencies for ansible/. Pinned to the exact versions bundled
+# in the ansible community package (see `ansible-galaxy collection list`),
+# so linting resolves the same modules converge runs.
+# Installed to the default user path (~/.ansible/collections, no config needed).
+# Installed automatically before lint:ansible when missing; re-run manually
+# after bumping versions here: npm run ops:collections
+collections:
+  - name: community.general
+    version: "13.5.0"
+  - name: ansible.posix
+    version: "2.2.2"

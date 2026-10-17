@@ -1,0 +1,28 @@
+---
+# fail2ban with the sshd jail enabled (defaults + sane ban times).
+- name: Write sshd jail overrides
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by atelier-limoun ansible/ — do not edit on the host.
+      [DEFAULT]
+      bantime = 1h
+      findtime = 10m
+      maxretry = 5
+
+      [sshd]
+      enabled = true
+  notify: Restart fail2ban
+
+# Skipped in check mode: on a fresh box the unit only exists after the apt
+# install above actually runs, so there is nothing meaningful to dry-run here.
+# Real converges always execute this task.
+- name: Enable and start fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    enabled: true
+    state: started
+  when: not ansible_check_mode

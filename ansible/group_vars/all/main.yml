@@ -1,0 +1,37 @@
+---
+# Shared baseline variables — committed, identical for every contributor.
+# The VPS address is public via DNS and the SSH keys are public by design,
+# so nothing here is secret. There are no host-level secrets yet; when the
+# first appears it goes in sops (see docs/deploy.md § Secrets), never here.
+# App secrets (Strapi keys, DB passwords) live in the Dokploy env UI, never here.
+
+# Escape hatch: export ATELIER_LIMOUN_VPS_HOST to target a different address
+# (e.g. a fresh IP before DNS cutover). Otherwise the committed IP is used.
+vps_host: "{{ lookup('env', 'ATELIER_LIMOUN_VPS_HOST') | default('149.202.40.156', true) }}"
+vps_hostname: atelier-vps
+vps_timezone: Europe/Paris
+
+# Extra UFW-allowed TCP ports beyond SSH. Empty = tunnel mode (all HTTP(S)
+# arrives via Cloudflare Tunnel, nothing listens publicly). Direct-access
+# fallback: converge with -e firewall_extra_open_ports=[80,443].
+firewall_extra_open_ports: []
+
+# Default login user is hardcoded in inventory.yml (wagou). The only
+# exception is the very first converge, which uses the :first tasks:
+#   mise run ops:check:first / mise run ops:converge:first
+vps_users:
+  # Break-glass account: the original OVH image user, kept so key loss on
+  # personal accounts never means losing the box. Same keys as wagou (no new
+  # secret material), never used day-to-day. Deeper fallback (SSH/firewall
+  # breakage): OVH rescue mode + ops/vps-bootstrap.sh.
+  - name: ubuntu
+    sudo: true
+    keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK5i6pRser7uD4XAKTh7ofkqTQqaaONmFPP/EJ8Ks2OT atelier-limoun"
+  - name: wagou
+    sudo: true
+    keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK5i6pRser7uD4XAKTh7ofkqTQqaaONmFPP/EJ8Ks2OT atelier-limoun"
+  - name: chloe
+    sudo: true
+    keys: []

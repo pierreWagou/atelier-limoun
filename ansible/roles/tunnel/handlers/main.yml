@@ -1,0 +1,19 @@
+---
+# Always runs when notified (keeps the loaded unit in sync even while the
+# service itself stays stopped for lack of a token).
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+# Restarted when the unit file changes (and on first token-backed start).
+# Skipped in check mode (unit absent without the package) and when no token
+# is present (service was never started — nothing to restart; the enable
+# task starts it once the token lands).
+- name: Restart cloudflared
+  ansible.builtin.systemd:
+    name: cloudflared
+    state: restarted
+    daemon_reload: true
+  when:
+    - not ansible_check_mode
+    - tunnel_token.stat.exists

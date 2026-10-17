@@ -1,0 +1,19 @@
+---
+# Unattended security updates, no auto-reboot (single VPS: reboot manually
+# and check the site afterwards). Package itself is installed by the base role.
+- name: Configure unattended-upgrades (security only, no auto-reboot)
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/51-atelier-unattended
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      // Managed by atelier-limoun ansible/ — do not edit on the host.
+      Unattended-Upgrade::Allowed-Origins {
+        "${distro_id}:${distro_codename}-security";
+        // Cloudflare Tunnel connector (third-party repo; codename tracks
+        // the OS release — revisit on Ubuntu upgrade alongside the repo line).
+        "cloudflared:noble";
+      };
+      Unattended-Upgrade::Automatic-Reboot "false";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";

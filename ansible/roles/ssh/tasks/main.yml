@@ -1,0 +1,23 @@
+---
+# SSH hardening: key-only auth, no root login. Validated with sshd -t
+# before the handler reloads, and never close your existing session until
+# a NEW login as wagou succeeds.
+- name: Write SSH hardening drop-in
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/60-atelier-hardening.conf
+    owner: root
+    group: root
+    mode: "0600"
+    content: |
+      # Managed by atelier-limoun ansible/ — do not edit on the host.
+      PasswordAuthentication no
+      PermitRootLogin no
+      PubkeyAuthentication yes
+      ChallengeResponseAuthentication no
+      UsePAM yes
+      X11Forwarding no
+  notify: Reload SSH
+
+- name: Validate sshd configuration
+  ansible.builtin.command: sshd -t
+  changed_when: false

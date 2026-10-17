@@ -1,0 +1,8 @@
+---
+# Restarted only when the jail config changed.
+# Skipped in check mode (see the enable task: the unit may not exist yet).
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+  when: not ansible_check_mode

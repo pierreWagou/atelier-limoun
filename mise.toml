@@ -1,5 +1,5 @@
 # Unified dev environment — contributors only need mise:
-#   mise install      → installs Node (see .node-version) with npm
+#   mise install      → installs Node (see .node-version) with npm + gitleaks
 #   mise run setup    → installs all dependencies
 #   mise run dev      → starts CMS + site in mprocs
 # The Node version lives in .node-version (read by fnm, mise and Nixpacks).
@@ -10,6 +10,14 @@ idiomatic_version_file_enable_tools = ["node", "mprocs"]
 
 [tools]
 mprocs = "latest"
+gitleaks = "latest"
+# Single entry: the community package bundles community.general (needed for the
+# ufw module). uvx_args exposes ansible-core's CLIs too — otherwise mise would
+# only link the metapackage's own `ansible-community` shim.
+"pipx:ansible" = { version = "14.5.0", uvx_args = "--with-executables-from ansible-core" }
+# Linter + formatter for ansible/ (ansible-lint --fix is the YAML formatter).
+# No uvx_args needed: the ansible-lint script is the root package executable.
+"pipx:ansible-lint" = "26.10.1"
 
 [tasks.setup]
 description = "Install all dependencies (/, site/, cms/) + Playwright Chromium"
@@ -22,3 +30,31 @@ run = "mprocs"
 [tasks.test]
 description = "Run unit tests"
 run = "npm run test"
+
+[tasks.lint]
+description = "Lint (delegates to npm; mise guarantees tools on PATH)"
+run = "npm run lint"
+
+[tasks."lint:ansible"]
+description = "Lint ansible/ (delegates to npm; mise guarantees tools on PATH)"
+run = "npm run lint:ansible"
+
+[tasks."lint:ansible:fix"]
+description = "Auto-fix ansible/ lint violations (delegates to npm)"
+run = "npm run lint:ansible:fix"
+
+[tasks."ops:check"]
+description = "Ansible dry-run against the VPS (check mode with diff, changes nothing)"
+run = "npm run ops:check"
+
+[tasks."ops:converge"]
+description = "Converge the VPS to the repo baseline (ansible/site.yml)"
+run = "npm run ops:converge"
+
+[tasks."ops:check:first"]
+description = "First dry-run as the OVH image user (before wagou exists)"
+run = "npm run ops:check:first"
+
+[tasks."ops:converge:first"]
+description = "First converge as the OVH image user (before wagou exists)"
+run = "npm run ops:converge:first"

@@ -1,0 +1,103 @@
+---
+# Cloudflare Tunnel connector (remotely-managed: routes live in the dashboard).
+# Only the token file is manual (root-only, never in git); this role manages
+# everything around it. Without the token the service stays stopped — safe to
+# converge anytime. All HTTP(S) arrives via the tunnel; UFW stays 22-only.
+- name: Install Cloudflare GPG key
+  ansible.builtin.get_url:
+    url: https://pkg.cloudflare.com/cloudflare-main.gpg
+    dest: /usr/share/keyrings/cloudflare-archive-keyring.gpg
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Add Cloudflare apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/cloudflared.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: https://pkg.cloudflare.com/cloudflared
+      # Pinned to noble: Cloudflare publishes no repo for newer Ubuntu
+      # releases yet (resolute missing as of 2026-10). cloudflared is a
+      # static Go binary — no dependency risk. Revisit on OS upgrade.
+      Suites: noble
+      Components: main
+      Signed-By: /usr/share/keyrings/cloudflare-archive-keyring.gpg
+
+- name: Install cloudflared
+  ansible.builtin.apt:
+    name: cloudflared
+    state: present
+    update_cache: true
+    # No cache_valid_time: this repo was just added/changed above, and a
+    # throttled skip would hide it (base role already refreshed the cache
+    # minutes ago without this source).
+  # Check mode cannot see a just-added repo (the sources file itself is a
+  # no-op in dry-run, so the package is unresolvable). The real converge
+  # writes the repo first and installs fine; ignore the lookup here so the
+  # rest of the dry-run diff stays visible. A real install failure still
+  # fails the converge (ignore applies to check mode only).
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Create cloudflared config dir (root-only, holds the token)
+  ansible.builtin.file:
+    path: /etc/cloudflared
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Check for the tunnel token file
+  ansible.builtin.stat:
+    path: /etc/cloudflared/token
+  register: tunnel_token
+
+- name: Point at token setup when missing
+  ansible.builtin.debug:
+    msg: >-
+      No /etc/cloudflared/token yet — connector stays stopped. Create the
+      tunnel in the Cloudflare dashboard, paste the token as root
+      (see docs/deploy.md §2), then re-run converge.
+  when: not tunnel_token.stat.exists
+
+- name: Install cloudflared systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cloudflared.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by atelier-limoun ansible/ — do not edit on the host.
+      [Unit]
+      Description=Cloudflare Tunnel connector (atelierlimoun.fr)
+      Documentation=https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/
+      After=network-online.target
+      Wants=network-online.target
+      # No token, no start (instead of crash-looping): the enable task
+      # below only runs once the token file exists anyway.
+      ConditionPathExists=/etc/cloudflared/token
+
+      [Service]
+      Type=notify
+      ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate --loglevel info run --token-file /etc/cloudflared/token
+      Restart=on-failure
+      RestartSec=5s
+      User=root
+      NoNewPrivileges=true
+
+      [Install]
+      WantedBy=multi-user.target
+  notify:
+    - Reload systemd
+    - Restart cloudflared
+
+- name: Enable and start cloudflared (only with a token present)
+  ansible.builtin.systemd:
+    name: cloudflared
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: tunnel_token.stat.exists

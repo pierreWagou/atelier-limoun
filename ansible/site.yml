@@ -1,0 +1,25 @@
+---
+# Converge the OVH VPS to the repo baseline.
+# Dry-run first: npm run ops:check. Apply: npm run ops:converge.
+- name: Baseline for atelierlimoun.fr VPS
+  hosts: atelier-limoun
+  become: true
+  gather_facts: false # pre_tasks guard validates the target before any SSH attempt
+  pre_tasks:
+    - name: Fail when the target host is not set
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined and (ansible_host | trim) != ''
+        fail_msg: >-
+          Target host is empty — check vps_host in
+          ansible/group_vars/all/main.yml.
+      delegate_to: localhost
+      become: false
+  roles:
+    - base
+    - users
+    - ssh
+    - tunnel
+    - firewall
+    - fail2ban
+    - autoupdates

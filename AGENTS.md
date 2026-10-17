@@ -9,8 +9,8 @@ Astro 7 static site (`site/`) + Strapi 5 headless CMS (`cms/`; SQLite locally, P
 
 ### Commands & gates
 
-- Root `package.json` is **the command registry** (`lint`, `lint:fix`, `check`, `check:site`, `check:cms`, `test`, `test:e2e`, `secret-scan`, `setup`). lefthook, CI and mise must call these scripts, never re-spell the underlying commands. Exception: pre-commit jobs in `lefthook.yml` keep raw `biome`/`gitleaks` invocations because they need `{staged_files}` substitution — hook plumbing, not a portable primitive.
-- Before finishing any task, keep the gates green: `npm run lint`, `npm run check`, `npm run test`. CI additionally runs the Playwright smoke against a seeded CMS.
+- Root `package.json` is **the command registry** (`lint`, `lint:fix`, `lint:ansible`, `lint:ansible:fix`, `check`, `check:site`, `check:cms`, `test`, `test:e2e`, `secret-scan`, `setup`). lefthook, CI and mise must call these scripts, never re-spell the underlying commands. Exception: pre-commit jobs in `lefthook.yml` keep raw `biome`/`gitleaks` invocations because they need `{staged_files}` substitution — hook plumbing, not a portable primitive.
+- Before finishing any task, keep the gates green: `npm run lint`, `npm run lint:ansible`, `npm run check`, `npm run test`. CI additionally runs the Playwright smoke against a seeded CMS.
 
 ### Language & content
 

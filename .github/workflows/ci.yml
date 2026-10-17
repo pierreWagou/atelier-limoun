@@ -43,6 +43,28 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+  ansible:
+    name: Ansible lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - uses: jdx/mise-action@v2
+
+      # Tools come from mise.toml (pinned versions); the lint command itself
+      # comes from the root package.json (the command registry).
+      # CI runners auto-trust the config (see `mise trust --help`); the pipx
+      # backend falls back to preinstalled pipx when uv is absent.
+      - name: Install Ansible tooling
+        run: mise install pipx:ansible-lint
+
+      - name: Ansible lint
+        run: npm run lint:ansible
+
   e2e:
     name: Build & E2E smoke
     runs-on: ubuntu-latest

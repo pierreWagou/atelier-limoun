@@ -1,0 +1,6 @@
+---
+# Reloaded only when the hardening drop-in changed.
+- name: Reload SSH
+  ansible.builtin.service:
+    name: ssh
+    state: reloaded

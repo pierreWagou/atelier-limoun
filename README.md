@@ -75,13 +75,18 @@ atelier-limoun/
 
 ### Prerequisites
 
-- [mise](https://mise.jdx.dev) — manages Node.js version and dev tasks (npm comes with it)
-- [gitleaks](https://github.com/gitleaks/gitleaks) — secret scanning (`brew install gitleaks`)
+- [mise](https://mise.jdx.dev) — manages Node.js version, gitleaks (secret scanning) and dev tasks (npm comes with Node).
+  Install, then activate it in your shell **once** (puts mise tools on `PATH` — required for `npm run lint:ansible`, `gitleaks`, and direct `ansible-*` calls):
+
+  ```bash
+  echo 'eval "$(mise activate zsh)"' >> ~/.zshrc   # macOS default; use bash + ~/.bashrc on Linux
+  exec zsh -l                                        # reload (or open a new terminal)
+  ```
 
 ### Local development
 
 ```bash
-# Install Node.js + all dependencies (site, cms, Playwright browser)
+# Install Node.js + gitleaks + all dependencies (site, cms, Playwright browser)
 mise install && mise run setup
 
 # Start the full dev environment (6 panes: cms, site, tests, typechecks, docs)
@@ -129,7 +134,7 @@ The [docs site](https://pierreWagou.github.io/atelier-limoun/) (VitePress, GitHu
 |---|---|
 | Setup | `mise run setup` |
 | Dev | `mise run dev` |
-| Lint | `npm run lint` |
+| Lint | `npm run lint` (JS/TS/CSS) + `npm run lint:ansible` (VPS playbooks) |
 | Typecheck | `npm run check` |
 | Unit tests | `npm run test` |
 | E2E | `npm run test:e2e` |

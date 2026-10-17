@@ -1,0 +1,37 @@
+---
+# Base OS: hostname, timezone, patched packages, NTP.
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ vps_hostname }}"
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ vps_timezone }}"
+
+- name: Full system upgrade
+  ansible.builtin.apt:
+    upgrade: dist
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - fail2ban
+      - unattended-upgrades
+      - ufw
+      - curl
+      - ca-certificates
+    state: present
+
+- name: Gather service facts (to detect the NTP backend)
+  ansible.builtin.service_facts:
+
+- name: Ensure the present NTP backend stays enabled and started
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: "{{ ['chrony', 'systemd-timesyncd'] | intersect(ansible_facts.services.keys() | map('regex_replace', '\\.service$', '') | list) }}"
+  loop_control:
+    label: "{{ item }}"

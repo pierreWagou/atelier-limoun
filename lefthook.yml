@@ -6,7 +6,11 @@ pre-commit:
       glob: "*.{js,jsx,ts,tsx,mjs,cjs,astro,json,jsonc,css,yml,yaml}"
     - name: gitleaks
       run: gitleaks protect --staged --redact
-      # gitleaks is a standalone binary (brew install gitleaks), not an npm dep
+      # gitleaks is provisioned by mise (see mise.toml), not an npm dep
+    - name: ansible-lint
+      # whole ansible/ dir (cross-file rules need full context, like upstream's pass_filenames: false)
+      run: npm run lint:ansible
+      glob: "ansible/**/*.{yml,yaml}"
 
 pre-push:
   jobs:

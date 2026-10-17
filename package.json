@@ -5,6 +5,10 @@
     "prepare": "lefthook install",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "lint:ansible": "ansible-lint ansible/",
+    "lint:ansible:fix": "npm run ops:collections && ansible-lint --fix ansible/",
+    "prelint:ansible": "[ -d ~/.ansible/collections/ansible_collections/community/general ] && [ -d ~/.ansible/collections/ansible_collections/ansible/posix ] || npm run ops:collections",
+    "ops:collections": "ansible-galaxy collection install -r ansible/requirements.yml -p ~/.ansible/collections --force",
     "secret-scan": "gitleaks git --redact",
     "check:site": "npm run check --prefix site",
     "check:cms": "npm run check --prefix cms",
@@ -15,7 +19,11 @@
     "docs:dev": "vitepress dev docs",
     "predocs:dev": "mkdir -p docs/public && cp site/public/favicon.svg docs/public/favicon.svg",
     "docs:build": "VITEPRESS_BASE=/atelier-limoun/ vitepress build docs",
-    "predocs:build": "mkdir -p docs/public && cp site/public/favicon.svg docs/public/favicon.svg"
+    "predocs:build": "mkdir -p docs/public && cp site/public/favicon.svg docs/public/favicon.svg",
+    "ops:check": "ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook --check --diff ansible/site.yml",
+    "ops:converge": "ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook --diff ansible/site.yml",
+    "ops:check:first": "ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook --check --diff -e ansible_user=ubuntu ansible/site.yml",
+    "ops:converge:first": "ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook --diff -e ansible_user=ubuntu ansible/site.yml"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

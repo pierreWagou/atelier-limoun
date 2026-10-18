@@ -6,7 +6,6 @@ dist/
 .tmp/
 *.log
 .DS_Store
-cms/public/uploads/
 cms/.tmp/
 site/test-results/
 site/playwright-report/

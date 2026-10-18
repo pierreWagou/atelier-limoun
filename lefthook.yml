@@ -1,16 +1,27 @@
 pre-commit:
   jobs:
     - name: biome
-      run: npx biome check --write --files-ignore-unknown=true {staged_files}
+      # NOTE: no yml/yaml here — biome cannot process YAML and errors when it
+      # receives only ignored files (exit 1, blocks the commit). --no-errors-on-unmatched
+      # is belt-and-braces for the same failure mode. YAML under ansible/ is
+      # covered by the ansible-lint job below.
+      run: npx biome check --write --files-ignore-unknown=true --no-errors-on-unmatched {staged_files}
       stage_fixed: true
-      glob: "*.{js,jsx,ts,tsx,mjs,cjs,astro,json,jsonc,css,yml,yaml}"
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,astro,json,jsonc,css}"
     - name: gitleaks
       run: gitleaks protect --staged --redact
       # gitleaks is provisioned by mise (see mise.toml), not an npm dep
     - name: ansible-lint
-      # whole ansible/ dir (cross-file rules need full context, like upstream's pass_filenames: false)
+      # whole ansible/ dir (cross-file context, like upstream's pass_filenames: false)
+      # NOTE: root-level and nested patterns are listed separately — this
+      # lefthook version requires at least one directory under **/, so a lone
+      # ansible/**/* pattern would silently skip ansible/site.yml,
+      # ansible/inventory.yml and ansible/requirements.yml.
       run: npm run lint:ansible
-      glob: "ansible/**/*.{yml,yaml}"
+      glob:
+        - "ansible/*.yml"
+        - "ansible/*.yaml"
+        - "ansible/**/*.{yml,yaml}"
 
 pre-push:
   jobs:

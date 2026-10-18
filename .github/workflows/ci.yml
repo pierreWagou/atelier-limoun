@@ -78,6 +78,10 @@ jobs:
           cache-dependency-path: |
             site/package-lock.json
             cms/package-lock.json
+          cache: npm
+          cache-dependency-path: |
+            site/package-lock.json
+            cms/package-lock.json
 
       - name: Install CMS dependencies
         run: npm ci
@@ -96,8 +100,12 @@ jobs:
           JWT_SECRET: ci-jwt
         run: |
           npm run build
-          npm start &
+          npm start > "$RUNNER_TEMP/strapi.log" 2>&1 &
           npx --yes wait-on http://localhost:1337/api/projects -t 120000
+
+      - name: Dump Strapi log on failure
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP/strapi.log" || true
 
       - name: Build site against Strapi
         run: npm run build

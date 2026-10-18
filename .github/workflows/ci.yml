@@ -78,10 +78,6 @@ jobs:
           cache-dependency-path: |
             site/package-lock.json
             cms/package-lock.json
-          cache: npm
-          cache-dependency-path: |
-            site/package-lock.json
-            cms/package-lock.json
 
       - name: Install CMS dependencies
         run: npm ci

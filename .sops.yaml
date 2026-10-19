@@ -1,0 +1,12 @@
+# sops + age recipients for ansible/ host secrets (see docs/deploy.md § Secrets).
+# The private keys never leave their owners' machines (~/.config/sops/age/keys.txt,
+# backed up in Bitwarden like the SSH key). Only age1… *public* keys are committed here.
+#
+# Onboarding a contributor: they generate a keypair with
+#   age-keygen -o ~/.config/sops/age/keys.txt
+# PR their age1… public key into the list below; a maintainer then runs
+#   sops updatekeys ansible/group_vars/all/secrets.sops.yml
+# and commits the re-encrypted file.
+creation_rules:
+  - path_regex: ansible/group_vars/all/secrets\.sops\.yml$
+    age: age1ya5p9n5p90p8jsml4lnw6jlfyu8t872khjf5vaff9gxzlkav2u4qcrsxcr

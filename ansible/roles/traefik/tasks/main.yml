@@ -1,0 +1,39 @@
+---
+# Dokploy panel route (Traefik file provider, watch: true — picked up with no
+# restart). Dokploy wrote the placeholder once at install
+# (Host(`dokploy.docker.localhost`)) and only rewrites this file when Server
+# Domain is saved in the UI; we own the route instead (see docs/deploy.md §3),
+# so Server Domain stays empty. HTTPS is deliberately absent everywhere:
+# Cloudflare terminates TLS at the edge, Traefik serves plain HTTP on `web`.
+- name: Ensure Traefik dynamic config dir exists
+  ansible.builtin.file:
+    path: /etc/dokploy/traefik/dynamic
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Route the Dokploy panel through Traefik
+  ansible.builtin.copy:
+    dest: /etc/dokploy/traefik/dynamic/dokploy.yml
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by atelier-limoun ansible/ — do not edit on the host.
+      # Panel routing lives here (not in the Dokploy UI): Server Domain stays
+      # empty so Dokploy never rewrites this file — converge re-asserts it.
+      # No TLS here: Cloudflare terminates at the edge, Traefik serves `web`.
+      http:
+        routers:
+          dokploy-router-app:
+            rule: "Host(`{{ traefik_panel_domain }}`) && PathPrefix(`/`)"
+            service: dokploy-service-app
+            entryPoints:
+              - web
+        services:
+          dokploy-service-app:
+            loadBalancer:
+              servers:
+                - url: http://dokploy:3000
+              passHostHeader: true

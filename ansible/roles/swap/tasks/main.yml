@@ -1,0 +1,62 @@
+---
+- name: Check for existing swapfile
+  ansible.builtin.stat:
+    path: "{{ swap_file }}"
+  register: swap_file_stat
+
+- name: Read active swaps
+  ansible.builtin.command:
+    cmd: swapon --show=NAME --noheadings
+  register: swap_active
+  changed_when: false
+  check_mode: false
+
+- name: Check swapfile format
+  ansible.builtin.command:
+    cmd: blkid -o value -s TYPE {{ swap_file }}
+  register: swap_file_type
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create swapfile
+  ansible.builtin.command:
+    cmd: fallocate -l {{ swap_size_mb }}M {{ swap_file }}
+  when: not swap_file_stat.stat.exists
+  changed_when: true
+
+- name: Lock down swapfile permissions
+  ansible.builtin.file:
+    path: "{{ swap_file }}"
+    mode: "0600"
+  # In check mode on a fresh host the create task is skipped, so the file
+  # does not exist yet — nothing to preview.
+  when: swap_file_stat.stat.exists or not ansible_check_mode
+
+- name: Format swapfile
+  ansible.builtin.command:
+    cmd: mkswap {{ swap_file }}
+  when: swap_file_type.stdout | default('') != 'swap'
+  changed_when: true
+
+- name: Enable swapfile
+  ansible.builtin.command:
+    cmd: swapon {{ swap_file }}
+  when: swap_file not in swap_active.stdout_lines
+  changed_when: true
+
+- name: Persist swapfile in fstab
+  ansible.posix.mount:
+    src: "{{ swap_file }}"
+    path: none
+    fstype: swap
+    opts: defaults
+    state: present
+
+- name: Keep swappiness low (swap under real pressure only)
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "{{ swap_swappiness }}"
+    state: present
+    reload: true
+    sysctl_set: true

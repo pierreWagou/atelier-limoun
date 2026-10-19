@@ -1,0 +1,5 @@
+# ansible-lint configuration — https://ansible.readthedocs.io/projects/lint/configuring/
+exclude_paths:
+  # sops + age ciphertext: line lengths and comment style are the encryption's
+  # output, not ours to format (see .sops.yaml and docs/deploy.md § Secrets).
+  - ansible/group_vars/all/secrets.sops.yml

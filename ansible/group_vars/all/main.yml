@@ -1,13 +1,19 @@
 ---
 # Shared baseline variables — committed, identical for every contributor.
 # The VPS address is public via DNS and the SSH keys are public by design,
-# so nothing here is secret. There are no host-level secrets yet; when the
-# first appears it goes in sops (see docs/deploy.md § Secrets), never here.
-# App secrets (Strapi keys, DB passwords) live in the Dokploy env UI, never here.
+# so nothing here is secret. Host-level secrets live in secrets.sops.yml
+# (sops + age, see .sops.yaml and docs/deploy.md § Secrets), loaded via
+# sops.yml — never here. App secrets (Strapi keys, DB passwords) live in
+# the Dokploy env UI, never here.
 
 # Escape hatch: export ATELIER_LIMOUN_VPS_HOST to target a different address
 # (e.g. a fresh IP before DNS cutover). Otherwise the committed IP is used.
 vps_host: "{{ lookup('env', 'ATELIER_LIMOUN_VPS_HOST') | default('149.202.40.156', true) }}"
+
+# Public hostname of the Dokploy panel, routed by our Traefik file config
+# (ansible/roles/traefik). Server Domain stays empty in the Dokploy UI so
+# Dokploy never rewrites that file — converge owns it.
+traefik_panel_domain: deploy.atelierlimoun.fr
 vps_hostname: atelier-vps
 vps_timezone: Europe/Paris
 

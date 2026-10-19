@@ -1,5 +1,15 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  // Two ignore layers, keep both: `vcs.useIgnoreFile` makes .gitignore the
+  // single source of truth (Biome v2 ignores it unless VCS integration is
+  // enabled), while the explicit `!` entries below keep lint hermetic when
+  // git metadata is absent (tarball export, VCS change). Either layer failing
+  // alone must never re-scan ignored local-only artifacts (see c6f1380).
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "**",

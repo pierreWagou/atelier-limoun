@@ -17,9 +17,11 @@
       become: false
   roles:
     - base
+    - swap
     - users
     - ssh
     - tunnel
+    - traefik
     - firewall
     - fail2ban
     - autoupdates

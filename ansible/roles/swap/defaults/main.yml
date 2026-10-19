@@ -1,0 +1,8 @@
+---
+# Memory safety net: the VPS (3.8 GB RAM, no swap until 2026-10-19) builds
+# Nixpacks images while serving apps. An OOM-killed build spiked load to 35,
+# starved cloudflared's QUIC connections (edge 530s) and flapped the Dokploy
+# swarm service. Swap turns build spikes into slowness instead of kills.
+swap_file: /swapfile
+swap_size_mb: 4096
+swap_swappiness: 10

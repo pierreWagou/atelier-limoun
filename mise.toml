@@ -11,6 +11,11 @@ idiomatic_version_file_enable_tools = ["node", "mprocs"]
 [tools]
 mprocs = "latest"
 gitleaks = "latest"
+# Secret management for ansible/ (sops + age, see docs/deploy.md § Secrets).
+# Contributors decrypt with their own age key (~/.config/sops/age/keys.txt);
+# only the age1… public keys are committed (in .sops.yaml).
+sops = "latest"
+age = "latest"
 # Single entry: the community package bundles community.general (needed for the
 # ufw module). uvx_args exposes ansible-core's CLIs too — otherwise mise would
 # only link the metapackage's own `ansible-community` shim.

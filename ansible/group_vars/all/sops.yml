@@ -1,0 +1,9 @@
+---
+# Decrypts secrets.sops.yml (sops + age) on the controller at converge time.
+# Requires your age private key at ~/.config/sops/age/keys.txt (see .sops.yaml).
+# Without it, any converge fails here with a sops decryption error — that is
+# intentional (fail fast, not halfway). Onboarding: PR your age1… public key
+# into .sops.yaml, a maintainer runs `sops updatekeys <file>`, you pull.
+_sops_file: "{{ playbook_dir }}/group_vars/all/secrets.sops.yml"
+_sops_data: "{{ lookup('community.sops.sops', _sops_file) | from_yaml }}"
+cloudflared_token: "{{ _sops_data.cloudflared_token }}"

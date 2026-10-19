@@ -5,18 +5,27 @@ Ops guide for deploying and operating atelier-limoun.fr. Architecture and local 
 Production topology:
 
 ```
-atelier-limoun.fr           → public site (Astro, static)
-cms.atelier-limoun.fr       → Strapi admin (your friend edits here)
-deploy.atelier-limoun.fr    → Dokploy dashboard
-*.preview.atelier-limoun.fr → PR previews (Astro)
+atelierlimoun.fr           → public site (Astro, static)
+cms.atelierlimoun.fr       → Strapi admin (your friend edits here)
+deploy.atelierlimoun.fr    → Dokploy dashboard
+*.preview.atelierlimoun.fr → PR previews (Dokploy generates preview-<app>-<id>.…)
 ```
 
 ## 1. VPS (one-time, reproducible via Ansible)
 
-The VPS baseline (users, SSH hardening, UFW, fail2ban, auto-updates) is
-code in `ansible/` — re-runnable and reviewable. Ansible is agentless: it is
+The VPS baseline (users, SSH hardening, swap, UFW, fail2ban, auto-updates)
+is code in `ansible/` — re-runnable and reviewable. Ansible is agentless: it is
 installed on your laptop via mise, the VPS only needs SSH + Python (Ubuntu
 26.04 ships both).
+
+::: tip Why swap is in the baseline
+The box has 3.8 GB RAM and Nixpacks builds run on it. An OOM-killed build
+on 2026-10-19 (no swap at the time) spiked load to 35, starved the
+tunnel's QUIC connections (instant edge 530s) and flapped the Dokploy
+swarm service. The `swap` role (4 GB, swappiness 10) turns build spikes
+into slowness instead of kills. If the edge ever 530s again, check
+`dmesg | grep -i oom` and `free -m` first.
+:::
 
 ```bash
 # One-time per contributor: ansible + all other dev tools
@@ -97,8 +106,7 @@ SSH). Revoking later = removing the key line + converge.
 access can't drift outside the repo. Same keys as `wagou`, sudo, never used
 day-to-day. Reach for it only if the personal accounts are locked out (lost
 keys). If SSH itself is broken (bad `sshd_config`, firewall lockout), no
-account helps — use OVH rescue mode + `ops/vps-bootstrap.sh` instead (see
-Fallback below).
+account helps — use OVH rescue mode (Fallback below).
 
 Re-running `ops:converge` is always safe (idempotent): the second run reports
 zero changes. To converge again after a repo change, just re-run it.
@@ -106,27 +114,41 @@ zero changes. To converge again after a repo change, just re-run it.
 ### Secrets
 
 App secrets (Strapi keys, `DATABASE_*`) stay in the **Dokploy env UI**, never
-in git. There are currently no host-level secrets, so there is no vault and
-no secret tooling for contributors to set up — deliberately.
+in git. Host-level secrets (currently: the Cloudflare Tunnel token; later
+candidates: a backup-encryption passphrase, an SMTP relay password, a
+Cloudflare API token) live in `ansible/group_vars/all/secrets.sops.yml`,
+encrypted with **`sops` + `age`** (recipients in `.sops.yaml`). The tunnel
+role deploys them; values never appear in logs (`no_log`) or git history
+in plaintext.
 
-When the first host secret appears (likely candidates: a backup-encryption
-passphrase, an SMTP relay password, a Cloudflare API token), the standing
-decision is **`sops` + `age`**, for the same reasons SSH keys work this way:
-no shared passphrase to distribute; a contributor PRs their age *public* key
-into `.sops.yaml`, a maintainer runs `sops updatekeys`. `sops` comes via mise
-(one line, zero contributor setup) and the `community.sops` lookup ships
-inside the `ansible` package already — no Galaxy step.
+Contributor setup (one-time, via mise): `mise install` provides `sops` +
+`age`. Your private key lives at `~/.config/sops/age/keys.txt` — generated
+with `age-keygen -o ~/.config/sops/age/keys.txt`, never shared, backed up
+in Bitwarden like the SSH key.
+
+Onboarding a new contributor: they PR their `age1…` public key into
+`.sops.yaml`; a maintainer runs
+`sops updatekeys ansible/group_vars/all/secrets.sops.yml` and commits the
+re-encrypted file. Without a key, any converge fails fast at decryption
+with a sops error — that is intentional (fail fast, not halfway).
+
+Rotation (e.g. recipient added/removed): regenerate the value at its
+source (tunnel token: Zero Trust → Networks → Tunnels → `atelier-vps`),
+update the sops file, `sops -e -i` is not needed for edits —
+`sops ansible/group_vars/all/secrets.sops.yml` opens the decrypted editor —
+then converge.
 
 Explicit non-goals: no ansible-vault (shared-passphrase distribution
-problem), no helper CLIs beyond mise-provided `sops`. Emergency interim if a
-secret is needed before sops is wired: `ansible-vault create` with
-`--ask-vault-pass` (interactive prompt, zero setup), replaced by sops right
-after.
+problem). Emergency interim if sops is ever unusable:
+`ansible-vault create` with `--ask-vault-pass` (interactive prompt, zero
+setup), replaced by sops right after.
 ### Fallback: OVH rescue mode
 
 If Ansible/SSH is ever unusable (e.g. rescue mode after an SSH or firewall
-breakage), `ops/vps-bootstrap.sh` reproduces the same baseline imperatively — see
-`ops/README.md`.
+breakage), reinstall the server from the OVH manager (the imperative
+bootstrap script was retired 2026-10 — the Ansible baseline is the single
+source of truth), then re-run this whole section: converge, Dokploy
+install, tunnel converge.
 
 Then install Dokploy (official, kept manual so the version stays explicit):
 
@@ -164,7 +186,8 @@ are the boundary). Cloudflare SSL/TLS mode → **Full (strict)**.
 | `www.atelierlimoun.fr` | site alias |
 | `cms.atelierlimoun.fr` | Strapi admin |
 | `deploy.atelierlimoun.fr` | Dokploy dashboard |
-| `*.preview.atelierlimoun.fr` | PR previews (wildcard route) |
+| `preview.atelierlimoun.fr` | PR previews landing (Dokploy) |
+| `*.preview.atelierlimoun.fr` | PR previews (Dokploy generates `preview-<app>-<id>.preview…`) |
 
    Each route auto-creates a proxied (orange) DNS record. Nothing is grey:
    the origin IP never appears in DNS.
@@ -174,22 +197,26 @@ are the boundary). Cloudflare SSL/TLS mode → **Full (strict)**.
 
 ### Connector + firewall (on the VPS, via Ansible)
 
-1. As root, place the token once (typed/pasted, never committed, never in
-   shell history — write from a file, then shred it):
+The tunnel token is managed by Ansible now: it is decrypted from
+`ansible/group_vars/all/secrets.sops.yml` on your laptop at converge time
+and deployed to the host as `/etc/cloudflared/token` (`0600 root:root`).
+No manual paste needed — just converge (tunnel role installs `cloudflared`,
+writes the systemd unit, deploys the token, starts the connector; firewall
+role then drops 80/443 — safe order, same run):
 
-   ```bash
-   install -m 600 /dev/stdin /etc/cloudflared/token <<'EOF'
-   <paste token>
-   EOF
-   ```
+```bash
+mise run ops:check && mise run ops:converge
+```
 
-2. Converge (tunnel role installs `cloudflared`, writes the systemd unit,
-   starts the connector; firewall role then drops 80/443 — safe order,
-   same run):
+Fallback (no age key, or sops unusable): place the token manually as root
+(typed/pasted, never committed, never in shell history — write from a file,
+then shred it), and converge skips the sops task:
 
-   ```bash
-   mise run ops:check && mise run ops:converge
-   ```
+```bash
+install -m 600 /dev/stdin /etc/cloudflared/token <<'EOF'
+<paste token>
+EOF
+```
 
 3. Verify: tunnel shows **Healthy** in the dashboard, `ufw status` allows
    only `22/tcp`, `curl -sI https://cms.atelierlimoun.fr` returns 200
@@ -211,12 +238,26 @@ Install Dokploy *before* the tunnel converge (its installer requires ports
 curl -fsSL https://dokploy.com/install.sh | sh
 ```
 
-::: warning Ubuntu 26.04 caveat
-The VPS runs Ubuntu 26.04. Dokploy pins specific Docker versions in its
-installer and has broken on 26.04 before (pinned Docker missing for the
-release). If the install fails on Docker, check Dokploy's issue tracker
-for the 26.04 thread before downgrading anything — do not hand-install a
-different Docker over it without recording why.
+::: warning Ubuntu 26.04 caveat (hit 2026-10-18, Dokploy v0.30.8)
+The VPS runs Ubuntu 26.04 (resolute). Dokploy v0.30.8's installer pins
+Docker CE 28.5.0, which does not exist for resolute (repo minimum is 29.x —
+upstream issues Dokploy/dokploy#4501, #5471). The installer fails at
+`Failed to initialize Docker Swarm` and leaves holds on the uninstalled
+packages. Workaround (why the manual Docker install below is legitimate):
+unhold, install Docker 29.x from the official resolute repo the installer
+already configured, then re-run the installer (it detects Docker and skips
+that step):
+
+```bash
+sudo apt-mark unhold docker-ce docker-ce-cli docker-ce-rootless-extras
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+curl -fsSL https://dokploy.com/install.sh | sudo sh
+```
+
+Installed this way on 2026-10-18: Docker 29.9.1 + Dokploy v0.30.8
+(dokploy / dokploy-traefik / dokploy-postgres healthy, swarm active).
+Re-check the upstream issues before the next fresh install — a fixed
+installer makes the workaround unnecessary.
 :::
 
 Then, per Dokploy's Cloudflare Tunnel guide: **disable Let's Encrypt** and
@@ -224,22 +265,150 @@ leave the **HTTPS toggle OFF** on every app — Cloudflare terminates TLS at
 the edge and talks plain HTTP to Traefik on loopback. Turning HTTPS on
 anywhere in Dokploy causes redirect loops behind the tunnel.
 
-1. Open `https://deploy.atelierlimoun.fr`, create the admin account, **enable 2FA**.
-2. **Database** → Postgres service (note host/port/name/user/password — never exposed publicly; internal Docker network only).
-3. **Project** → 2 apps from this GitHub repo (HTTPS toggle OFF, no certificate selected):
-   - **cms**: root directory `cms`, build `npm run build`, start `npm start`, domain `cms.atelierlimoun.fr`. Env: `DATABASE_CLIENT=postgres` + the service's `DATABASE_*`, `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET` (generate with `openssl rand -hex 16`).
-   - **site**: root directory `site`, build `npm run build`, start `npx serve dist` (or adapt), domains `atelierlimoun.fr` + `www.atelierlimoun.fr`. Env: `STRAPI_URL=https://cms.atelierlimoun.fr`, optional `STRAPI_TOKEN`.
-4. **Preview deployments** → enable on the **site** app (one PR = one instance at `pr-<n>.preview.atelierlimoun.fr`, routed by the wildcard tunnel route).
-5. **GitHub integration** → auto-deploy on push to `main`.
+1. First access is via SSH forward — the dashboard listens on `:3000` but UFW
+   blocks it publicly, and `deploy.` returns 404 until step 2 routes it:
+   ```bash
+   ssh -L 3000:localhost:3000 atelier-limoun   # Host alias from §1
+   ```
+   then open `http://localhost:3000`, create the admin account, **enable 2FA**.
+2. Panel routing is Ansible-owned, not UI-owned: `mise run ops:converge`
+   writes Traefik's `dokploy.yml` with `Host(deploy.atelierlimoun.fr)` and
+   every converge re-asserts it — so leave **Server Domain empty** in
+   Settings → Server (saving a host there makes Dokploy rewrite the file;
+   converge would revert it). From then on `https://deploy.atelierlimoun.fr`
+   serves the panel through the tunnel. GitHub webhook URLs are pasted
+   manually as `https://deploy.atelierlimoun.fr/api/webhook/...`.
+
+::: tip Tunnel login shows "Invalid origin"?
+Dokploy's Better Auth only trusts origins from `webServerSettings`
+(`http://<serverIp>:3000`, `https://<host>`) plus the owner's
+`user.trustedOrigins` array. With Server Domain empty, the tunnel origin is
+trusted only via the array: with one owner row present,
+`UPDATE "user" SET "trustedOrigins" = ARRAY['https://deploy.atelierlimoun.fr']`
+(single-row table at the time — scope the `WHERE` if that ever changes).
+Rollback is setting it back to null. Snapshot the DB (`pg_dump --data-only`)
+before touching auth state.
+:::
+**Build location (decided 2026-10-19):** apps build on-server from git
+(Nixpacks). Evaluated CI-built GHCR images (industry standard, creneau's
+model) and deferred: Dokploy's native per-PR previews only work for
+git-built apps, and this project needs per-PR review, not release
+promotion. Revisit if VPS build load hurts or staging-prod parity is ever
+required — the switch is a per-app provider change, no architecture change.
+
+3. **Project → New project** → `atelier-limoun` (default environment), then:
+
+### `postgres` (Databases → Postgres)
+
+Dokploy-managed Postgres, internal Docker network only — never a Traefik
+route, never publicly resolvable. Note the service's host/port/name/user/
+password (Apps → Environment tab shows them as `DATABASE_*`). Scheduled
+backups → S3 destination when one exists (see §6).
+
+### `cms` (Strapi 5, Nixpacks)
+
+| Setting | Value |
+|---|---|
+| Provider | GitHub, same repo, branch `main` |
+| Root directory | `cms` |
+| Build type | Nixpacks (default) — build `npm run build`, start `npm start` |
+| Port | `1337` |
+| Domain | `cms.atelierlimoun.fr`, **HTTPS toggle OFF**, no certificate |
+| Watch paths | `cms/**` (a `site/`-only push must not rebuild the CMS) |
+
+Env (secrets never committed — `.env.example` holds placeholders only):
+
+| Var | Value |
+|---|---|
+| `HOST` / `PORT` | `0.0.0.0` / `1337` |
+| `DATABASE_CLIENT` | `postgres` |
+| `DATABASE_HOST/PORT/NAME/USERNAME/PASSWORD` | from the `postgres` service |
+| `APP_KEYS`, `JWT_SECRET` | fresh `openssl rand -hex 16` (APP_KEYS: two comma-separated) |
+| `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT` | fresh `openssl rand -hex 16` each |
+| `SITE_REBUILD_URL` (+ optional `SITE_REBUILD_TOKEN`) | the site app's Dokploy deploy hook — see §4 |
+
+Two traps:
+
+- **Uploads are ephemeral** unless a persistent Dokploy volume is mounted on
+  `/app/public/uploads` — without it, every redeploys loses media. Mount it,
+  and include it in volume backups.
+- **`STRAPI_TOKEN` deliberately unset**: bootstrap already grants the public
+  role read-only API access on an empty DB (and seeds demo content —
+  `cms/src/index.ts`, idempotent, nothing to do by hand). Add a read-only
+  token later only if a real need appears.
+
+### `site` (Astro 7 static, Nixpacks + Publish Directory)
+
+| Setting | Value |
+|---|---|
+| Provider | GitHub, same repo, branch `main` |
+| Root directory | `site` |
+| Build type | Nixpacks — build `npm run build`, **Publish directory** `dist` (Dokploy serves it with its optimized NGINX image — zero-Downtime-ish static serving, no Node runtime) |
+| Port | `80` |
+| Domains | `atelierlimoun.fr` + `www.atelierlimoun.fr`, **HTTPS OFF** |
+| Watch paths | `site/**` |
+
+Env — **build-time** (baked into `dist/` by `astro build`, set before the
+first build):
+
+| Var | Value |
+|---|---|
+| `STRAPI_URL` | `https://cms.atelierlimoun.fr` (public origin; dev fallback `http://localhost:1337` in `site/src/lib/strapi.ts` is for local dev only) |
+
+### Preview deployments (both apps)
+
+Enable on both apps. Custom wildcard domain: `*.preview.atelierlimoun.fr`
+(Dokploy generates `preview-<app>-<id>.preview…` — the tunnel wildcard route
+already covers it). Defaults otherwise (max 3, all PRs to `main`).
+
+- **site previews build against the production CMS** (`STRAPI_URL=https://cms…`):
+  content is not in git, so PR previews test code against real content —
+  intended, documented. Per-override to a preview CMS only for end-to-end
+  CMS+site PRs.
+- **cms previews must never touch the production database**: override
+  `DATABASE_CLIENT` so bootstrap falls back to throwaway sqlite + demo seed
+  (verify Dokploy's per-preview env override applies to `DATABASE_HOST`
+  too; fallback if not: a dedicated preview postgres service).
+
+### GitHub auto-deploy
+
+The GitHub app integration watches `main` on both apps (deploy on push).
+Webhook URLs are pasted manually per app (Server Domain stays empty —
+§3 step 2): `https://deploy.atelierlimoun.fr/api/webhook/github/<token>`
+shown in each app's Deployments tab.
+
+::: tip No setup wizard? Unknown admin row
+If `http://localhost:3000` shows a login page instead of registration on a
+fresh install, an admin row already exists (`select count(*) from "user"` —
+seen once 2026-10-18 with a `lab-orch@localhost.local` account, origin
+never determined; entry was only possible via an SSH forward since `:3000`
+was never public). Fix: snapshot first
+(`pg_dump -U dokploy -d dokploy --data-only`), then
+`DELETE FROM session; DELETE FROM account; DELETE FROM member; DELETE FROM "user";`
+via `docker exec` on the postgres container — the next load redirects `/`
+→ `/register`. Afterwards, review `journalctl -u ssh` Accepted lines for
+unrecognized sessions before re-registering.
+:::
 
 ## 4. Auto-rebuild after CMS publish
 
-In the Strapi admin → **Settings → Webhooks** → create a `site-rebuild` webhook:
+Primary path (chosen 2026-10, versioned in git): the Strapi lifecycle code
+(`cms/src/api/*/content-types/*/lifecycle.ts` → `cms/src/api/shared/rebuild.ts`)
+POSTs to `SITE_REBUILD_URL` on every Page/Project publish. Set on the `cms`
+app:
 
-- URL: the Dokploy deploy hook URL for the **site** app (or a GitHub workflow dispatch)
-- Events: Create & Update for **Page** and **Project**
+- `SITE_REBUILD_URL` = the **site** app's Dokploy deploy hook URL (app →
+  Deployments tab → webhook; runs a full build+deploy of the Astro site,
+  ~1 min)
+- `SITE_REBUILD_TOKEN` = optional bearer, if the hook requires one
 
-Or set `SITE_REBUILD_URL` / `SITE_REBUILD_TOKEN` on the CMS side (the lifecycle code already calls them).
+Checkpoint (verify once at first deploy): the hook's accepted
+method/auth/body vs `rebuild.ts`'s POST + optional Bearer — adapt
+`rebuild.ts` if they mismatch (CMS-contract rule: keep seed/E2E and the
+client in the same change).
+
+Alternative (UI-only, no env): Strapi admin → Settings → Webhooks → create a
+`site-rebuild` webhook, same URL, events Create & Update for Page + Project.
 
 ## 5. CMS security
 
@@ -254,7 +423,7 @@ IP, no open web ports) and protected by the Strapi login. Additionally:
 
 ## 6. Backups
 
-- Weekly Postgres dump: `docker exec <pg-container> pg_dump -U strapi strapi | gzip > backup-$(date +%F).sql.gz`
+- Weekly Postgres dump: `docker exec <postgres-container> pg_dump -U <user> <db> | gzip > backup-$(date +%F).sql.gz` (user/db from the Dokploy `postgres` service's env)
 - Strapi uploads (`cms/public/uploads`) live on the app's volume — include them in the backup.
 - See Dokploy → Settings → Backups (S3-compatible if available).
 

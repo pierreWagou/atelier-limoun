@@ -10,3 +10,8 @@ collections:
     version: "13.5.0"
   - name: ansible.posix
     version: "2.2.2"
+  # Decrypts sops+age host secrets on the controller (see .sops.yaml).
+  # Already bundled in the ansible community package; pinned here so the
+  # dependency is explicit and survives a future unbundling.
+  - name: community.sops
+    version: "2.5.0"

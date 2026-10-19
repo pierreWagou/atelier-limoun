@@ -50,6 +50,18 @@
     group: root
     mode: "0700"
 
+- name: Deploy the tunnel token from sops (when available)
+  ansible.builtin.copy:
+    dest: /etc/cloudflared/token
+    content: "{{ cloudflared_token }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: cloudflared_token is defined and (cloudflared_token | string | trim | length > 0)
+  no_log: true
+  notify:
+    - Restart cloudflared
+
 - name: Check for the tunnel token file
   ansible.builtin.stat:
     path: /etc/cloudflared/token
@@ -58,9 +70,9 @@
 - name: Point at token setup when missing
   ansible.builtin.debug:
     msg: >-
-      No /etc/cloudflared/token yet — connector stays stopped. Create the
-      tunnel in the Cloudflare dashboard, paste the token as root
-      (see docs/deploy.md §2), then re-run converge.
+      No /etc/cloudflared/token and no cloudflared_token in sops — connector
+      stays stopped. Add the token to ansible/group_vars/all/secrets.sops.yml
+      (see docs/deploy.md § Secrets), then re-run converge.
   when: not tunnel_token.stat.exists
 
 - name: Install cloudflared systemd unit

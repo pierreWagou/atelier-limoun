@@ -5,10 +5,11 @@ Ops guide for deploying and operating atelier-limoun.fr. Architecture and local 
 Production topology:
 
 ```
-atelierlimoun.fr           → public site (Astro, static)
-cms.atelierlimoun.fr       → Strapi admin (your friend edits here)
-deploy.atelierlimoun.fr    → Dokploy dashboard
-*.preview.atelierlimoun.fr → PR previews (Dokploy generates preview-<app>-<id>.…)
+atelierlimoun.fr            → public site (Astro, static)
+cms.atelierlimoun.fr        → Strapi admin, prod (your friend edits here)
+staging-cms.atelierlimoun.fr → Strapi admin, staging (own throwaway DB)
+staging.atelierlimoun.fr    → staging site (tracks main, prod CMS content)
+deploy.atelierlimoun.fr     → Dokploy dashboard
 ```
 
 ## 1. VPS (one-time, reproducible via Ansible)
@@ -184,16 +185,28 @@ are the boundary). Cloudflare SSL/TLS mode → **Full (strict)**.
 |---|---|
 | `atelierlimoun.fr` | site (apex — Cloudflare flattens the CNAME automatically) |
 | `www.atelierlimoun.fr` | site alias |
-| `cms.atelierlimoun.fr` | Strapi admin |
+| `cms.atelierlimoun.fr` | Strapi admin (prod) |
+| `staging-cms.atelierlimoun.fr` | Strapi admin (staging — own throwaway DB, never prod's) |
+| `staging.atelierlimoun.fr` | staging site (tracks `main`, builds against prod CMS content) |
 | `deploy.atelierlimoun.fr` | Dokploy dashboard |
-| `preview.atelierlimoun.fr` | PR previews landing (Dokploy) |
-| `*.preview.atelierlimoun.fr` | PR previews (Dokploy generates `preview-<app>-<id>.preview…`) |
+
+Naming rule (decided 2026-10-19): environment first, service second,
+prod gets the bare name (`cms.*`, `staging-cms.*`). No `preview-*` names:
+Dokploy's per-PR preview URLs (`preview-<app>-<id>.preview…`) are nested
+two levels deep and can never terminate TLS here — see step 3. Per-PR
+previews are dropped until/unless that changes; `staging.*` is the review
+flow instead.
 
    Each route auto-creates a proxied (orange) DNS record. Nothing is grey:
    the origin IP never appears in DNS.
-3. If a nested preview hostname ever shows a cert error at the edge, check
-   Total TLS coverage first; fallbacks in order: Advanced Certificate Manager
-   → disable PR previews until resolved (site unaffected).
+3. Nested hostnames (`*.preview.atelierlimoun.fr`) can never terminate TLS on
+   this setup — verified 2026-10-19 via `curl` handshake failure. Why: the
+   Universal cert covers exactly one wildcard level, and Total TLS
+   **excludes tunnel-routed hostnames** (Cloudflare docs) while itself
+   requiring the paid add-on. Revisit path if per-PR HTTPS previews are ever
+   needed: Advanced Certificate Manager with an explicit `*.preview` entry
+   (~$10/mo). Until then: no `preview.*` routes, no preview deployments in
+   Dokploy (they'd generate TLS-dead URLs); `staging.*` covers review.
 
 ### Connector + firewall (on the VPS, via Ansible)
 
@@ -291,10 +304,13 @@ before touching auth state.
 :::
 **Build location (decided 2026-10-19):** apps build on-server from git
 (Nixpacks). Evaluated CI-built GHCR images (industry standard, creneau's
-model) and deferred: Dokploy's native per-PR previews only work for
-git-built apps, and this project needs per-PR review, not release
-promotion. Revisit if VPS build load hurts or staging-prod parity is ever
-required — the switch is a per-app provider change, no architecture change.
+model) and deferred: on-server builds need no pipeline to own, and the
+review flow (staging + manual prod promotion) works identically either way.
+The one argument that *would* force the switch — per-PR preview parity
+between reviewed and shipped artifacts — died with per-PR previews themselves
+(nested preview names can't terminate TLS here, §2 step 3). Revisit if VPS
+build load hurts — the switch is a per-app provider change, no architecture
+change.
 
 3. **Project → New project** → `atelier-limoun` (default environment), then:
 
@@ -355,20 +371,23 @@ first build):
 |---|---|
 | `STRAPI_URL` | `https://cms.atelierlimoun.fr` (public origin; dev fallback `http://localhost:1337` in `site/src/lib/strapi.ts` is for local dev only) |
 
-### Preview deployments (both apps)
+### Review flow: staging, not per-PR previews
 
-Enable on both apps. Custom wildcard domain: `*.preview.atelierlimoun.fr`
-(Dokploy generates `preview-<app>-<id>.preview…` — the tunnel wildcard route
-already covers it). Defaults otherwise (max 3, all PRs to `main`).
+Dokploy's native per-PR previews are **off** and stay off: their generated
+hostnames (`preview-<app>-<id>.preview…`) are nested two levels deep and can
+never terminate TLS here (see §2 step 3 — needs paid ACM, consciously
+deferred). Instead:
 
-- **site previews build against the production CMS** (`STRAPI_URL=https://cms…`):
-  content is not in git, so PR previews test code against real content —
-  intended, documented. Per-override to a preview CMS only for end-to-end
-  CMS+site PRs.
-- **cms previews must never touch the production database**: override
-  `DATABASE_CLIENT` so bootstrap falls back to throwaway sqlite + demo seed
-  (verify Dokploy's per-preview env override applies to `DATABASE_HOST`
-  too; fallback if not: a dedicated preview postgres service).
+- **Staging site** (`staging.atelierlimoun.fr`, same `site` app settings as
+  prod plus this domain, auto-deploy ON): tracks `main`, builds against the
+  **production** CMS content. Stable URL, always reviewable — merge to `main`,
+  check staging, promote prod with a manual Deploy.
+- **Staging CMS** (`staging-cms.atelierlimoun.fr`): same `cms` image/config as
+  prod, own throwaway DB (sqlite via env override, or a second postgres
+  service — never prod's), so CMS code changes can be reviewed without
+  touching real content. Rebuilds on push to `main`, same as prod.
+- The friend never sees staging; prod promotion stays a deliberate manual
+  Deploy per app (rollback = previous Dokploy deployment).
 
 ### GitHub auto-deploy
 
